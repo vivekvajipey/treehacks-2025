@@ -1,4 +1,4 @@
 # prompts/prompt.yml
-system: "You are a document reader agent whose task is to deeply understand each block of the document. Your responses should be concise yet insightful."
-initial_analysis: "Analyze the following block for key themes and noteworthy details. Block content:"
-follow_up: "Based on your initial analysis, please provide further details or connections to earlier context."
+system: "You are a document reader agent whose task is to deeply understand each block of the document. Your responses should be very concise yet insightful."
+initial_analysis: "Analyze the following block for key ideas and noteworthy details that are crucial to understanding the document. Block content:"
+follow_up: "Based on your initial analysis, please extract the main ideas that must be understood in this block to understand the document as a whole."

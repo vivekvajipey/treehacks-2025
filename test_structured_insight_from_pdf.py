@@ -1,4 +1,3 @@
-# test_structured_insight_from_pdf.py
 import asyncio
 import os
 import json
@@ -13,8 +12,13 @@ from build_context_from_blocks import build_context_from_blocks
 from src.services.rumination.structured_insight_service import StructuredInsightService
 from src.models.conversation.message import Message, MessageRole
 from src.services.ai.llm_service import LLMService
+from src.models.viewer.block import Block
 
 load_dotenv()
+
+verbose = True
+# pdf_name = "aime"
+pdf_name = "deepseek_introduction"
 
 def compute_hash(file_data: bytes) -> str:
     """Compute SHA-256 hash of file data."""
@@ -27,7 +31,7 @@ def generate_unique_filename(pdf_hash: str) -> str:
 
 async def main():
     # Path to your sample PDF file in the 'pdf' directory
-    pdf_path = os.path.join("pdf", "aime.pdf")
+    pdf_path = os.path.join("pdf", f"{pdf_name}.pdf")
     if not os.path.exists(pdf_path):
         print(f"PDF file not found at {pdf_path}. Please add a sample PDF to the 'pdf' directory.")
         return
@@ -50,7 +54,6 @@ async def main():
         # Reconstruct pages and blocks from cache
         pages = cache_data.get("pages", [])
         blocks_data = cache_data.get("blocks", [])
-        from src.models.viewer.block import Block
         blocks = [Block.from_dict(bd) for bd in blocks_data]
     else:
         print("Processing PDF with Marker API...")
@@ -95,18 +98,22 @@ async def main():
     # Initialize the structured insight service.
     sis = StructuredInsightService()
 
-    # Filter blocks to only desired types: Text, Equation, TextInlineMath, Caption.
-    desired_types = {"Text", "Equation", "TextInlineMath", "Caption"}
+    # Add the system prompt once to the cumulative conversation.
+    if not sis.get_cumulative_messages():
+        sis._update_cumulative_messages([
+            Message(conversation_id="global", role=MessageRole.SYSTEM, content=system_prompt)
+        ])
+
+    # Filter blocks to only desired types: Text, Equation, TextInlineMath, ListItem.
+    desired_types = {"Text", "Equation", "TextInlineMath", "ListItem"}
     filtered_blocks = [b for b in blocks if b.block_type in desired_types]
     print(f"\nProcessing {len(filtered_blocks)} blocks of interest for structured insights.")
 
-    # For each filtered block, run the multi-turn conversation using the LLM.
+    # For each filtered block, we build a growing conversation.
     for block in filtered_blocks:
-        conversation_history = []
         conversation_id = f"conv-{block.id}"
-        # System message from prompts
-        conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.SYSTEM, content=system_prompt))
-        # User message for initial analysis with block details
+        # Prepare new messages for the current block.
+        block_messages = []
         block_text = block.html_content or ""
         plain_text = re.sub(r'<[^>]+>', '', block_text).strip()
         initial_message = (
@@ -114,19 +121,37 @@ async def main():
             f"[Block ID: {block.id}, Page: {block.page_id}]\n"
             f"{plain_text}"
         )
-        conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.USER, content=initial_message))
-        
-        # Call LLM for initial analysis
-        response1 = await llm_service.generate_response(conversation_history)
-        conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response1))
-        
-        # Follow-up turn
-        conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.USER, content=follow_up_prompt))
-        response2 = await llm_service.generate_response(conversation_history)
-        conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response2))
-        
-        # Add conversation to structured insights (use block.page_id for page info)
-        sis.add_block_conversation(conversation_history, block_id=block.id, page_number=block.page_number)
+        block_messages.append(Message(conversation_id=conversation_id, role=MessageRole.USER, content=initial_message))
+
+        if verbose:
+            print(f"\n--- Processing Block ID: {block.id}, Page: {block.page_number} ---")
+            print(f"Initial message: {initial_message}")
+
+        # Create full context: cumulative messages so far + new block messages.
+        full_context = sis.get_cumulative_messages() + block_messages
+
+        # Call LLM for initial analysis using full context.
+        response1 = await llm_service.generate_response(full_context)
+        block_messages.append(Message(conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response1))
+        if verbose:
+            print(f"Response 1: {response1}")
+
+        # Append follow-up message.
+        block_messages.append(Message(conversation_id=conversation_id, role=MessageRole.USER, content=follow_up_prompt))
+        if verbose:
+            print(f"Follow-up message: {follow_up_prompt}")
+
+        # Create new full context with cumulative + block messages so far.
+        full_context = sis.get_cumulative_messages() + block_messages
+        response2 = await llm_service.generate_response(full_context)
+        block_messages.append(Message(conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response2))
+        if verbose:
+            print(f"Response 2: {response2}")
+
+        # Update the cumulative conversation with just the new block messages.
+        sis._update_cumulative_messages(block_messages)
+        # Also add the block's conversation to structured insights (using block.page_number)
+        sis.add_block_conversation(block_messages, block_id=block.id, page_number=block.page_number)
 
     # Print cumulative messages (for prompt caching)
     print("\nCumulative Messages:")
