@@ -126,7 +126,7 @@ async def main():
         conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response2))
         
         # Add conversation to structured insights (use block.page_id for page info)
-        sis.add_block_conversation(conversation_history, block_id=block.id, page_number=int(block.page_id) if block.page_id else None)
+        sis.add_block_conversation(conversation_history, block_id=block.id, page_number=block.page_number)
 
     # Print cumulative messages (for prompt caching)
     print("\nCumulative Messages:")
