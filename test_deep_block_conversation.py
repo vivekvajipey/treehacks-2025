@@ -1,4 +1,4 @@
-# test_single_block_conversation.py
+# test_deep_block_conversation.py
 import asyncio
 import os
 import yaml
@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 from src.services.ai.llm_service import LLMService
 from src.models.conversation.message import Message, MessageRole
 
-# Simple HTML stripping utility (or import from your context service)
 def strip_html(html: str) -> str:
+    import re
     return re.sub(r'<[^>]+>', '', html)
 
 load_dotenv()
@@ -24,40 +24,41 @@ async def main():
     with open(prompt_path, "r") as f:
         prompts = yaml.safe_load(f)
 
-    system_prompt = prompts.get("system", "You are a document reader agent.")
-    initial_analysis_prompt = prompts.get("initial_analysis", "Analyze the following block:")
-    follow_up_prompt = prompts.get("follow_up", "Please provide further detail.")
+    system_prompt = prompts.get("system")
+    initial_analysis_prompt = prompts.get("initial_analysis")
+    follow_up_prompt = prompts.get("follow_up")
 
-    # Create a dummy block (simulate a block extracted from a document)
-    dummy_block = {
-        "id": "test-block-1",
-        "page_number": 1,
+    # Use a deeper text that would benefit from deep reading.
+    with open("text/deep_block_1.html", "r") as f:
+        deep_block_html = f.read()
+    deep_block = {
+        "id": "deep-block-1",
+        "page_number": 3,
         "block_type": "Text",
-        "html_content": "<p>This is a test block containing important details about the document's main theme. The text discusses key advancements in AI and their implications.</p>"
+        "html_content": deep_block_html
     }
 
-    # Extract plain text from the block
-    block_text = strip_html(dummy_block["html_content"]).strip()
+    block_text = strip_html(deep_block["html_content"]).strip()
 
-    # Generate a unique conversation ID
-    conversation_id = "unique-conversation-id"  # Replace with actual logic to generate or retrieve an ID
+    # Generate a unique conversation ID (could be a UUID in a full implementation)
+    conversation_id = "deep-conversation-1"
 
-    # Build the initial conversation history
+    # Build conversation history with our system prompt and initial analysis prompt
     conversation_history = []
     conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.SYSTEM, content=system_prompt))
 
     user_message = (
         f"{initial_analysis_prompt}\n"
-        f"[Block ID: {dummy_block['id']}, Page: {dummy_block['page_number']}]\n"
+        f"[Block ID: {deep_block['id']}, Page: {deep_block['page_number']}]\n"
         f"{block_text}"
     )
     conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.USER, content=user_message))
 
-    # Initialize the LLM service (ensure your API key is set in the environment, e.g., LLM_API_KEY)
+    # Initialize LLM service (ensure OPENAI_API_KEY is set in environment)
     api_key = os.getenv("OPENAI_API_KEY")
     llm_service = LLMService(api_key=api_key)
 
-    # Turn 1: Get the initial analysis
+    # Turn 1: Initial analysis
     response1 = await llm_service.generate_response(conversation_history)
     conversation_history.append(Message(conversation_id=conversation_id, role=MessageRole.ASSISTANT, content=response1))
 
@@ -68,10 +69,9 @@ async def main():
 
     final_insight = response2
 
-    # Build cumulative context (a simple concatenation of the conversation)
     cumulative_context = "\n".join([f"{msg.role}: {msg.content}" for msg in conversation_history])
 
-    print("Final Insight from Block Conversation:\n")
+    print("Final Insight from Deep Block Conversation:\n")
     print(final_insight)
     print("\nCumulative Conversation Context:\n")
     print(cumulative_context)
