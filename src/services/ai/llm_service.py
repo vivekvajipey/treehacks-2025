@@ -1,9 +1,11 @@
+# llm_service.py
+
 from typing import List, Optional
 from src.models.conversation.message import Message, MessageRole
 from litellm import acompletion
 
 class LLMService:
-    CHAT_MODEL = "gpt-4o"  # Default model
+    CHAT_MODEL = "gpt-4o-mini"  # Default model
     
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
