@@ -29,10 +29,10 @@ async def main():
     follow_up_prompt = prompts.get("follow_up")
 
     # Use a deeper text that would benefit from deep reading.
-    with open("text/deep_block_1.html", "r") as f:
+    with open("text/grpo.txt", "r") as f:
         deep_block_html = f.read()
     deep_block = {
-        "id": "deep-block-1",
+        "id": "grpo-block-1",
         "page_number": 3,
         "block_type": "Text",
         "html_content": deep_block_html

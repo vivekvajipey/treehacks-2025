@@ -1,0 +1,21 @@
+\subsection*{Reinforcement Learning Algorithm}
+
+\textbf{Group Relative Policy Optimization} \quad In order to save the training costs of RL, we adopt Group Relative Policy Optimization (GRPO) \cite{shao2024}, which foregoes the critic model that is typically the same size as the policy model, and estimates the baseline from group scores instead. Specifically, for each question $q$, GRPO samples a group of outputs $\{o_1, o_2, \dots, o_G\}$ from the old policy $\pi_{\theta_{old}}$ and then optimizes the policy model $\pi_\theta$ by maximizing the following objective:
+
+\begin{equation}
+    \mathcal{J}_{GRPO}(\theta) = \mathbb{E}\big[q \sim P(Q), \{o_i\}_{i=1}^{G} \sim \pi_{\theta_{old}}(o|q)\big]
+\end{equation}
+
+\begin{equation}
+    \frac{1}{G} \sum_{i=1}^{G} \left( \min \left( \frac{\pi_{\theta}(o_i|q)}{\pi_{\theta_{old}}(o_i|q)} A_i, \text{clip} \left( \frac{\pi_{\theta}(o_i|q)}{\pi_{\theta_{old}}(o_i|q)}, 1-\varepsilon, 1+\varepsilon \right) A_i \right) - \beta \mathbb{D}_{KL}(\pi_{\theta}||\pi_{ref}) \right),
+\end{equation}
+
+\begin{equation}
+    \mathbb{D}_{KL}(\pi_{\theta}||\pi_{ref}) = \frac{\pi_{ref}(o_i|q)}{\pi_{\theta}(o_i|q)} - \log \frac{\pi_{ref}(o_i|q)}{\pi_{\theta}(o_i|q)} -1,
+\end{equation}
+
+where $\varepsilon$ and $\beta$ are hyper-parameters, and $A_i$ is the advantage, computed using a group of rewards $\{r_1, r_2, \dots, r_G\}$ corresponding to the outputs within each group:
+
+\begin{equation}
+    A_i = \frac{r_i - \text{mean}(\{r_1, r_2, \dots, r_G\})}{\text{std}(\{r_1, r_2, \dots, r_G\})}.
+\end{equation}

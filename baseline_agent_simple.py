@@ -25,10 +25,10 @@ async def main():
         simple_prompt = "Provide a concise analysis of the following text block:"
 
     # Use the same deep block as before for a fair comparison
-    with open("text/deep_block_1.html", "r") as f:
+    with open("text/grpo.txt", "r") as f:
         deep_block_html = f.read()
     deep_block = {
-        "id": "deep-block-1",
+        "id": "grpo-block-1",
         "page_number": 3,
         "block_type": "Text",
         "html_content": deep_block_html
