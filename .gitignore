@@ -1,5 +1,6 @@
 .env
 *.pyc
 cache/*
-insights*.json
+*.json
 *.pdf
+.DS_Store
