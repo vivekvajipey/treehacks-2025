@@ -27,7 +27,7 @@ def compute_hash(file_data: bytes) -> str:
 def generate_unique_filename(pdf_hash: str) -> str:
     """Generate a unique filename using the pdf hash and current timestamp."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"insights_{pdf_hash}_{timestamp}.json"
+    return f"insights_{pdf_hash[:8]}_{timestamp}.json"
 
 async def main():
     # Path to your sample PDF file in the 'pdf' directory
