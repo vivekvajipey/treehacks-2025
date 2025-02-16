@@ -43,14 +43,10 @@ class UploadService:
             logger.info("Starting marker processing!")
             document.start_marker_processing()
             
-            pages, blocks = await self.marker.process_document(file_data)
+            # Pass document_id to marker service
+            pages, blocks = await self.marker.process_document(file_data, document.id)
             
-            # Set document ID on pages and blocks
-            for page in pages:
-                page.document_id = document.id
-            for block in blocks:
-                block.document_id = document.id
-            
+            # Store pages and blocks
             await self.document_repo.store_pages(pages, session)
             await self.document_repo.store_blocks(blocks, session)
 
@@ -66,7 +62,7 @@ class UploadService:
             return document
             
         except Exception as e:
-            print(f"Error processing document: {e}")
+            logger.error(f"Error processing document: {e}")
             document.set_error(str(e))
             await self.document_repo.store_document(document, session)  # Store error status
             raise

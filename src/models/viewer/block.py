@@ -38,7 +38,7 @@ class BlockType(str, Enum):
 
 class Block(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
-    document_id: Optional[str] = None
+    document_id: str
     page_id: Optional[str] = None
     block_type: Optional[BlockType] = None
     html_content: Optional[str] = None
@@ -73,10 +73,13 @@ class Block(BaseModel):
     @classmethod
     def from_dict(cls, data: Dict) -> 'Block':
         """Create Block from dictionary"""
+        if 'document_id' not in data:
+            raise ValueError("document_id is required")
+            
         block_type = BlockType(data['block_type']) if data.get('block_type') else None
         return cls(
             id=data.get('id'),
-            document_id=data.get('document_id'),
+            document_id=data['document_id'],
             page_id=data.get('page_id'),
             block_type=block_type,
             html_content=data.get('html_content'),

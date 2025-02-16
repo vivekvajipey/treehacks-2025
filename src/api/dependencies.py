@@ -11,10 +11,13 @@ from src.repositories.factory import RepositoryFactory
 from src.repositories.interfaces.document_repository import DocumentRepository
 from src.repositories.interfaces.storage_repository import StorageRepository
 from src.repositories.interfaces.conversation_repository import ConversationRepository
+from src.repositories.interfaces.insight_repository import InsightRepository
+from src.repositories.implementations.sqlite_insight_repository import InsightModel
 from src.services.document.upload_service import UploadService
 from src.services.document.marker_service import MarkerService
 from src.services.conversation.chat_service import ChatService
 from src.services.ai.llm_service import LLMService
+from src.services.rumination.structured_insight_service import StructuredInsightService
 from src.config import get_settings, Settings
 
 # Global instances
@@ -37,10 +40,14 @@ async def initialize_repositories():
         engine = create_async_engine(url)
         db_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         
+        # Import all models that need tables created
+        from src.repositories.implementations.sqlite_insight_repository import InsightModel
+        
         # Create tables
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     
+    # Initialize repositories with session factory if available
     repository_factory.init_repositories(
         document_type=settings.document_storage_type,
         storage_type=settings.file_storage_type,
@@ -53,7 +60,8 @@ async def initialize_repositories():
         db_password=settings.db_password,
         aws_access_key=settings.aws_access_key,
         aws_secret_key=settings.aws_secret_key,
-        s3_bucket=settings.s3_bucket
+        s3_bucket=settings.s3_bucket,
+        session_factory=db_session_factory
     )
 
 async def get_db() -> Optional[AsyncSession]:
@@ -93,6 +101,20 @@ def get_llm_service() -> LLMService:
     """Dependency for LLM service"""
     settings = get_settings()
     return LLMService(api_key=settings.openai_api_key)
+
+def get_insight_repository() -> InsightRepository:
+    """Dependency for insight repository"""
+    return repository_factory.insight_repository
+
+def get_insight_service(
+    llm_service: LLMService = Depends(get_llm_service),
+    insight_repository: InsightRepository = Depends(get_insight_repository)
+) -> StructuredInsightService:
+    """Dependency for insight service"""
+    return StructuredInsightService(
+        llm_service=llm_service,
+        insight_repository=insight_repository
+    )
 
 def get_upload_service(
     document_repository: DocumentRepository = Depends(get_document_repository),

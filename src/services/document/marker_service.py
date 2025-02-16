@@ -19,12 +19,12 @@ class MarkerService:
         if not self.api_key:
             raise ValueError("API key not provided")
 
-    async def process_document(self, file_data: bytes) -> Tuple[List[Page], List[Block]]:
+    async def process_document(self, file_data: bytes, document_id: str) -> Tuple[List[Page], List[Block]]:
         """Full document processing through Marker"""
         try:
             check_url = await self._initiate_processing(file_data)
             marker_response = await self._poll_until_complete(check_url)
-            return self._create_pages_and_blocks(marker_response)
+            return self._create_pages_and_blocks(marker_response, document_id)
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -73,7 +73,7 @@ class MarkerService:
                 
         raise HTTPException(status_code=408, detail="Processing timeout")
 
-    def _create_pages_and_blocks(self, marker_response: Dict[str, Any]) -> Tuple[List[Page], List[Block]]:
+    def _create_pages_and_blocks(self, marker_response: Dict[str, Any], document_id: str) -> Tuple[List[Page], List[Block]]:
         """Create Page and Block objects from Marker response"""
         pages = []
         blocks = []
@@ -88,13 +88,14 @@ class MarkerService:
                 page_number=page_idx,
                 polygon=page_data.get('polygon'),
                 html_content=page_data.get('html', ""),
+                document_id=document_id,
                 created_at=datetime.now(),
                 updated_at=datetime.now()
             )
             pages.append(page)
             
             # Process blocks in this page
-            page_blocks = self._process_blocks(page_data.get('children', []), page.id)
+            page_blocks = self._process_blocks(page_data.get('children', []), document_id, page.id)
             blocks.extend(page_blocks)
             
             # Add block IDs to page
@@ -103,17 +104,17 @@ class MarkerService:
         
         return pages, blocks
     
-    def _process_blocks(self, block_list: List[Dict], page_id: str) -> List[Block]:
+    def _process_blocks(self, block_list: List[Dict], document_id: str, page_id: str) -> List[Block]:
         """Recursively process blocks and their children"""
         blocks = []
         for block_data in block_list:
-            # Create block
-            block = Block.from_marker_block(block_data, None, page_id)
+            # Create block with document_id
+            block = Block.from_marker_block(block_data, document_id, page_id)
             blocks.append(block)
             
             # Process children recursively
             if block_data.get('children'):
-                child_blocks = self._process_blocks(block_data['children'], page_id)
+                child_blocks = self._process_blocks(block_data['children'], document_id, page_id)
                 blocks.extend(child_blocks)
         
         return blocks

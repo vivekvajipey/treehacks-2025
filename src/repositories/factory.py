@@ -4,6 +4,7 @@ from typing import Optional
 from .interfaces.document_repository import DocumentRepository
 from .interfaces.storage_repository import StorageRepository
 from .interfaces.conversation_repository import ConversationRepository
+from .interfaces.insight_repository import InsightRepository
 
 class StorageType(Enum):
     LOCAL = "local"
@@ -16,6 +17,7 @@ class RepositoryFactory:
         self._document_repo: Optional[DocumentRepository] = None
         self._storage_repo: Optional[StorageRepository] = None
         self._conversation_repo: Optional[ConversationRepository] = None
+        self._insight_repo: Optional[InsightRepository] = None
         
     def init_repositories(
         self,
@@ -33,9 +35,20 @@ class RepositoryFactory:
         elif document_type == "sqlite":
             from .implementations.sqlite_document_repository import SQLiteDocumentRepository
             from .implementations.sqlite_conversation_repository import SQLiteConversationRepository
+            from .implementations.sqlite_insight_repository import SQLiteInsightRepository
             db_path = kwargs.get('db_path', 'sqlite.db')
+            
+            # Create session factory if not exists
+            if 'session_factory' not in kwargs:
+                from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+                from sqlalchemy.orm import sessionmaker
+                engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
+                kwargs['session_factory'] = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            
             self._document_repo = SQLiteDocumentRepository(db_path=db_path)
             self._conversation_repo = SQLiteConversationRepository(db_path=db_path)
+            self._insight_repo = SQLiteInsightRepository(kwargs['session_factory'])
+            
         elif document_type == "rds":
             from .implementations.rds_document_repository import RDSDocumentRepository
             raise NotImplementedError("RDS implementation pending")
@@ -74,3 +87,10 @@ class RepositoryFactory:
         if not self._conversation_repo:
             raise RuntimeError("Conversation repository not initialized")
         return self._conversation_repo
+
+    @property
+    def insight_repository(self) -> InsightRepository:
+        """Get insight repository instance"""
+        if not self._insight_repo:
+            raise RuntimeError("Insight repository not initialized")
+        return self._insight_repo

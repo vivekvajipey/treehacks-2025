@@ -9,6 +9,7 @@ class Annotation(BaseModel):
 
 class StructuredInsight(BaseModel):
     block_id: str
+    document_id: str
     page_number: Optional[int] = None
     insight: str
     annotations: Optional[List[Annotation]] = None
